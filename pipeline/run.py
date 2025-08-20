@@ -4,14 +4,20 @@
 import os
 import json
 import logging
-import pandas as pd
 from typing import List, Dict
+import datetime
 
 # Assumed import of the custom scraper files
-from scraper.models import Document
+from scraper.models import Document, FileLink
 from scraper.parse import parse_pdf 
 
 logger = logging.getLogger(__name__)
+
+# Define the data directories
+DATA_DIR = os.path.join("data")
+RAW_DIR = os.path.join(DATA_DIR, "raw")
+PROCESSED_DIR = os.path.join(DATA_DIR, "processed")
+PDF_DIR = os.path.join(RAW_DIR, "pdf")
 
 def validate_document(doc: Document) -> bool:
     """
@@ -37,18 +43,15 @@ def process_scraped_data(crawled_docs: List[Document], pdf_dir: str, processed_d
         if not validate_document(doc):
             continue
 
-        # Process each file link associated with the document
         processed_files = []
         for file_link in doc.file_links:
             if file_link.file_type == 'pdf':
-                # Assuming the PDF was downloaded and saved with its original filename
                 file_name = file_link.url.split('/')[-1]
                 file_path = os.path.join(pdf_dir, file_name)
                 
                 pdf_content = parse_pdf(file_path)
                 
                 if pdf_content:
-                    # Store processed content (text and tables) as a new field
                     processed_files.append({
                         "url": file_link.url,
                         "path": file_path,
@@ -56,27 +59,44 @@ def process_scraped_data(crawled_docs: List[Document], pdf_dir: str, processed_d
                         "tables_json": json.dumps(pdf_content.get("tables", []))
                     })
         
-        # Now, create a final structured record for storage
         doc_record = {
             "id": doc.id,
             "title": doc.title,
             "url": doc.url,
-            "date_published": str(doc.date_published),
+            "date_published": doc.date_published,
             "processed_files": processed_files
         }
         processed_documents.append(doc_record)
 
-    # --- Store the processed data (e.g., as JSON or a structured file) ---
     output_path = os.path.join(processed_dir, "processed_documents.json")
     with open(output_path, 'w') as f:
-        json.dump(processed_documents, f, indent=4)
+        # Use a custom function to handle non-serializable objects
+        json.dump(processed_documents, f, indent=4, default=str)
 
     logger.info(f"ETL process finished. Processed {len(processed_documents)} documents.")
     logger.info(f"Processed data stored at: {output_path}")
 
 if __name__ == "__main__":
-    # This is a placeholder; in a real scenario, this would be integrated with the crawler
-    # or orchestrated via a Makefile.
-    # For now, you can manually test it with a sample Document list.
-    logger.info("This script is designed to be run as part of a larger pipeline.")
-    logger.info("Please ensure your PDFs are downloaded in the data/raw/pdf directory.")
+    # This block will now load the data and call the processing function
+    crawled_docs_path = os.path.join(RAW_DIR, "crawled_documents.json")
+    
+    if not os.path.exists(crawled_docs_path):
+        logger.error(f"Crawled documents file not found at: {crawled_docs_path}")
+        logger.error("Please run the scraper.crawl script first to generate this file.")
+    else:
+        with open(crawled_docs_path, 'r') as f:
+            raw_docs_data = json.load(f)
+            
+        # Manually reconstruct Document objects from the dictionary data
+        crawled_docs = []
+        for d in raw_docs_data:
+            doc = Document(
+                id=d['id'],
+                title=d['title'],
+                url=d['url'],
+                date_published=datetime.datetime.fromisoformat(d['date_published']).date() if d['date_published'] else None,
+                file_links=[FileLink(**link) for link in d['file_links']]
+            )
+            crawled_docs.append(doc)
+
+        process_scraped_data(crawled_docs, PDF_DIR, PROCESSED_DIR)
