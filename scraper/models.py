@@ -1,0 +1,1 @@
+# Data models (dataclasses or pydantic models) for scraped content

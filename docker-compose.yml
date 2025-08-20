@@ -1,0 +1,64 @@
+# docker-compose.yml for the project services
+
+services:
+  scraper:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.scraper
+    container_name: mospi-scraper
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    networks:
+      - rag-network
+    command: python -m scraper.crawl
+
+  api:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.api
+    container_name: rag-api
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - scraper # Ensure scraper is done first (for initial data)
+      - ollama
+    networks:
+      - rag-network
+    command: uvicorn rag.api:app --host 0.0.0.0 --port 8000
+
+  ui:
+    build:
+      context: .
+      dockerfile: ./infra/Dockerfile.ui
+    container_name: rag-ui
+    env_file:
+      - .env
+    ports:
+      - "3000:3000" # Example for a Next.js/React app
+    depends_on:
+      - api
+    networks:
+      - rag-network
+
+  ollama:
+    container_name: ollama
+    image: ollama/ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - rag-network
+
+volumes:
+  ollama-data:
+
+networks:
+  rag-network:
+    driver: bridge
