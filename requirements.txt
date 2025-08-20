@@ -1,0 +1,29 @@
+# requirements.txt
+
+# --- Core Scraper & Utility Libraries ---
+python-dotenv
+httpx
+beautifulsoup4
+
+# --- PDF Processing ---
+pdfplumber
+# camelot-py # Alternative for complex table extraction; requires Ghostscript
+
+# --- Data Handling ---
+pandas # For general data manipulation, especially with tables
+# polars # A faster alternative to pandas, if preferred
+
+# --- RAG Components ---
+sentence-transformers # For generating embeddings
+faiss-cpu # Vector store (CPU version for local development)
+# chromadb # Alternative vector store (if preferred)
+
+# --- API Framework ---
+fastapi
+uvicorn[standard] # uvicorn with standard dependencies
+
+# --- Testing & Code Quality ---
+pytest
+mypy # For static type checking
+black # For code formatting
+isort # For sorting imports
