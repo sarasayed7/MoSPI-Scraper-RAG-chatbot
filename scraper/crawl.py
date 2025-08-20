@@ -1,6 +1,7 @@
 # scraper/crawl.py
 
 import os
+import json
 import httpx
 import logging
 import datetime
@@ -26,6 +27,12 @@ MAX_PAGES = int(os.getenv("MOSPI_MAX_PAGES", 5))
 RATE_LIMIT_SECONDS = float(os.getenv("MOSPI_RATE_LIMIT_SECONDS", 1))
 USER_AGENT = os.getenv("USER_AGENT", "Mozilla/5.0 (compatible; MoSPIScraper/1.0; +https://yourwebsite.com/)")
 PDF_DIR = os.path.join("data", "raw", "pdf")
+
+# Define the data directories
+DATA_DIR = os.path.join("data")
+RAW_DIR = os.path.join(DATA_DIR, "raw")
+PROCESSED_DIR = os.path.join(DATA_DIR, "processed")
+PDF_DIR = os.path.join(RAW_DIR, "pdf")
 
 # --- Global state for visited URLs and found documents ---
 visited_urls = set()
@@ -64,21 +71,28 @@ def get_page_content(url: str) -> Optional[str]:
 def download_file(url: str, output_dir: str) -> Optional[str]:
     """
     Downloads a file from a URL to a specified directory and returns the local path.
+    Only downloads if the file does not already exist.
     """
     try:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        response = http_client.get(url)
-        response.raise_for_status()
-        
         file_name = url.split('/')[-1]
         file_path = os.path.join(output_dir, file_name)
 
+        # --- NEW INCREMENTAL CHECK ---
+        if os.path.exists(file_path):
+            logger.info(f"File already exists: {file_path}. Skipping download.")
+            return file_path
+
+        logger.info(f"Downloading file from {url} to {file_path}...")
+        response = http_client.get(url, follow_redirects=True)
+        response.raise_for_status()
+        
         with open(file_path, 'wb') as f:
             f.write(response.content)
 
-        logger.info(f"Successfully downloaded file from {url} to {file_path}")
+        logger.info(f"Successfully downloaded file.")
         return file_path
     except Exception as e:
         logger.error(f"Failed to download file from {url}: {e}")
@@ -184,7 +198,7 @@ def crawl_website(seed_url: str, max_pages: int):
 
     logger.info(f"Crawl finished. Found {len(found_documents)} documents.")
 
-    # --- NEW LOGIC: Download all files from the scraped documents ---
+    # --- NEW LOGIC: Download all files from the scraped documents and save metadata ---
     logger.info("Starting file download process...")
     files_to_download = []
     for doc in found_documents:
@@ -199,6 +213,18 @@ def crawl_website(seed_url: str, max_pages: int):
             download_file(file_url, PDF_DIR)
 
     logger.info("File download process finished.")
+    
+    # --- Save the crawled documents to a JSON file ---
+    if found_documents:
+        output_path = os.path.join(RAW_DIR, "crawled_documents.json")
+        try:
+            docs_to_save = [d.to_dict() for d in found_documents]
+            with open(output_path, 'w', encoding='utf-8') as f:
+                json.dump(docs_to_save, f, indent=4)
+            logger.info(f"Successfully saved {len(found_documents)} document records to {output_path}.")
+        except Exception as e:
+            logger.error(f"Failed to save crawled documents to file: {e}")
+    
     return found_documents
 
 if __name__ == "__main__":
