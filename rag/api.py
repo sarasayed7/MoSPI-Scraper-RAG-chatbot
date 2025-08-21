@@ -1,5 +1,3 @@
-# FastAPI/Flask API endpoints for the chatbot [cite: 82]
-
 # rag/api.py
 
 import os
@@ -11,6 +9,8 @@ from typing import List
 from rag.retriever import DocumentRetriever
 import ollama
 
+# --- Logging Setup ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # Load the retriever
@@ -51,17 +51,20 @@ def answer_query(request: QueryRequest):
         
         # 2. Prepare the prompt for the LLM
         prompt = f"""
-        You are a helpful assistant that answers questions based on the provided context.
-        If the answer is not in the context, say that you don't know.
+        You are a helpful assistant. Your task is to extract information from the provided context to answer the user's question.
+        The context contains data from a government report, including tables and figures in a textual format.
         
+        Carefully analyze the text, especially any tables, to find the specific numbers and information requested.
+        Do not make up any information. If you cannot find the exact answer, clearly state that the information is not available in the provided context.
+
         Context:
         {context}
         
         Question: {request.query}
         """
         
-        # 3. Call the local LLaMA 3 model via Ollama
-        logger.info("Calling Ollama API with LLaMA 3 model...")
+        # 3. Call the local model via Ollama
+        logger.info("Calling Ollama API with llama3 model...")
         response = ollama.chat(
             model='llama3',
             messages=[{'role': 'user', 'content': prompt}],
