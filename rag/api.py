@@ -47,14 +47,19 @@ def answer_query(request: QueryRequest):
         if not context_chunks:
             return {"answer": "I could not find any relevant information to answer your question."}
         
-        context = "\n".join([chunk["chunk_text"] for chunk in context_chunks])
-        
+        # --- NEW LOGIC: Include document title in the context ---
+        context = ""
+        for chunk in context_chunks:
+            title = chunk.get("document_title", "Unknown Title")
+            text = chunk.get("chunk_text", "")
+            context += f"Document Title: {title}\nContent: {text}\n\n"
+
         # 2. Prepare the prompt for the LLM
         prompt = f"""
-        You are a helpful assistant. Your task is to extract information from the provided context to answer the user's question.
-        The context contains data from a government report, including tables and figures in a textual format.
+        You are a helpful assistant. Your task is to answer the user's question based ONLY on the provided context.
+        The context includes document titles and their content.
         
-        Carefully analyze the text, especially any tables, to find the specific numbers and information requested.
+        Carefully analyze the text, especially the document titles, to find the specific information requested.
         Do not make up any information. If you cannot find the exact answer, clearly state that the information is not available in the provided context.
 
         Context:
