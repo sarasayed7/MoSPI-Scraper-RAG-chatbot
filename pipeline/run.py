@@ -1,4 +1,3 @@
-# Main ETL script to transform raw data
 # pipeline/run.py
 
 import os
@@ -19,6 +18,20 @@ RAW_DIR = os.path.join(DATA_DIR, "raw")
 PROCESSED_DIR = os.path.join(DATA_DIR, "processed")
 PDF_DIR = os.path.join(RAW_DIR, "pdf")
 
+# A simple text chunking function
+def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> List[str]:
+    """Splits a document's text into smaller chunks."""
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start += (chunk_size - overlap)
+        if start + chunk_size > len(text) and start < len(text):
+            chunks.append(text[start:])
+            break
+    return chunks
+
 def validate_document(doc: Document) -> bool:
     """
     Performs basic data quality checks on a document.
@@ -26,7 +39,6 @@ def validate_document(doc: Document) -> bool:
     if not doc.title or not doc.url:
         logger.warning(f"Invalid document due to missing title or URL: {doc.id}")
         return False
-    # Additional validation checks can go here
     return True
 
 def process_scraped_data(crawled_docs: List[Document], pdf_dir: str, processed_dir: str):
@@ -52,10 +64,14 @@ def process_scraped_data(crawled_docs: List[Document], pdf_dir: str, processed_d
                 pdf_content = parse_pdf(file_path)
                 
                 if pdf_content:
+                    text_content = pdf_content.get("text", "")
+                    # --- NEW LOGIC: Chunk the extracted text ---
+                    text_chunks = chunk_text(text_content)
+                    
                     processed_files.append({
                         "url": file_link.url,
                         "path": file_path,
-                        "text_content": pdf_content.get("text", ""),
+                        "text_chunks": text_chunks,
                         "tables_json": json.dumps(pdf_content.get("tables", []))
                     })
         
@@ -70,14 +86,12 @@ def process_scraped_data(crawled_docs: List[Document], pdf_dir: str, processed_d
 
     output_path = os.path.join(processed_dir, "processed_documents.json")
     with open(output_path, 'w') as f:
-        # Use a custom function to handle non-serializable objects
         json.dump(processed_documents, f, indent=4, default=str)
 
     logger.info(f"ETL process finished. Processed {len(processed_documents)} documents.")
     logger.info(f"Processed data stored at: {output_path}")
 
 if __name__ == "__main__":
-    # This block will now load the data and call the processing function
     crawled_docs_path = os.path.join(RAW_DIR, "crawled_documents.json")
     
     if not os.path.exists(crawled_docs_path):
@@ -87,7 +101,6 @@ if __name__ == "__main__":
         with open(crawled_docs_path, 'r') as f:
             raw_docs_data = json.load(f)
             
-        # Manually reconstruct Document objects from the dictionary data
         crawled_docs = []
         for d in raw_docs_data:
             doc = Document(
