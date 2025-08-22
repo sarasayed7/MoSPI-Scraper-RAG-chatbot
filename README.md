@@ -1,114 +1,133 @@
-MoSPI Scraper + LLaMA-powered Q&A Chatbot 🤖
-This project builds an end-to-end Retrieval-Augmented Generation (RAG) system. It includes a web scraper for collecting public statistical content from the Ministry of Statistics and Programme Implementation (MoSPI) website, an ETL (Extract, Transform, Load) pipeline to process PDF documents, and a small Q&A chatbot powered by a local LLaMA 3 (or Phi-3) model.
-🎯 Deliverables Summary
-Code Repository: Organized code (/scraper, /pipeline, /rag, /infra), README.md, .env.example, and tests.
-Data Artifacts: Processed data (Parquet/CSV), and a FAISS vector index.
-Runnable Demo: A docker-compose setup to bring up all components (scraper, pipeline, RAG API, web UI) with a single command.
-Short Notes: Explanations of architecture, trade-offs, and future improvements (can be part of this README).
-(Optional Bonus) Screen-recording Demo: A short video demonstrating the chatbot.
-✨ Features
-Web Scraper: Collects content and metadata from MoSPI, handling PDF downloads and text/table extraction.
-ETL Pipeline: Processes raw data, chunks text, and prepares it for vector indexing.
-Vector Indexing: Creates a FAISS index from document chunks for efficient retrieval.
-RAG Chatbot API: A FastAPI backend that retrieves relevant context from the FAISS index and uses a local LLaMA 3 (or Phi-3) model (via Ollama) to answer user questions.
-Streamlit Frontend: A simple, interactive web UI for the chatbot.
-Dockerization: All components are containerized for easy deployment and reproducibility.
-🛠️ Tech Stack
-Languages: Python 3.11+
-Web Scraping: requests, beautifulsoup4, pdfplumber
-Data Handling: numpy, pandas
-RAG: sentence-transformers, faiss-cpu
-LLM Runtime: Ollama (for LLaMA 3 Instruct / Phi-3)
-API: FastAPI, uvicorn
-UI: Streamlit
-Containerization: Docker, docker-compose
-🚀 Setup & Running the Project
-The recommended way to run this project is using Docker Compose, as it handles all services (Ollama, API, UI, and a pipeline container for running scripts) in isolated environments.
-Prerequisites
-Git: For cloning the repository.
-Docker Desktop: Install Docker Desktop for your operating system (Windows, macOS, Linux). Ensure it's running.
-1. Clone the Repository
-git clone <your-repository-url>
-cd MoSPI-Scraper-RAG-chatbot
+# MoSPI Data Scraper & LLaMA-powered Q&A Chatbot 🤖
+
+This project builds a comprehensive data pipeline and a Retrieval-Augmented Generation (RAG) chatbot. It's designed to:
+1.  **Scrape** public statistical content from the Ministry of Statistics and Programme Implementation (MoSPI) website.
+2.  **Process** the collected data, including text and tables from PDFs.
+3.  **Answer questions** about the scraped corpus using a local LLaMA 3 model, providing contextual and cited responses.
+
+---
+
+## **0) Overview**
+
+The core goal is to demonstrate data engineering, web scraping, ETL design, data modeling, reproducibility, LLM integration, and product thinking. The system is containerized using Docker and Docker Compose for easy setup and execution.
+
+---
+
+## **1) Deliverables**
+
+* [X] **Code Repository:** Organized into `/scraper`, `/pipeline`, `/rag`, and `/infra` directories.
+* [X] **`README.md`:** This file serves as the setup guide, documentation for architecture, trade-offs, and future improvements.
+* [X] **`.env.example`:** Template for configurable settings.
+* [ ] **Tests:** (Unit and Integration tests are planned but not fully implemented in this version).
+* [X] **Data Artifacts:** Generated a FAISS vector index from processed documents.
+* [X] **Runnable Demo:** The entire system (`ollama`, `scraper`, `pipeline`, `rag_api`, `rag_ui`) can be brought up using `docker compose up`.
+* [ ] **(Optional, Bonus)** A 2-3 minute screen-recording demo.
+
+---
+
+## **2) Setup & Installation**
+
+To run this project, you need **Docker** and **Docker Compose** installed on your machine.
+
+1.  **Clone the repository:**
+    ```bash
+    git clone [https://github.com/your-username/your-repo.git](https://github.com/your-username/your-repo.git)
+    cd your-repo
+    ```
+
+2.  **Set up environment variables:**
+    * Create a `.env` file in the root directory from the `.env.example` template. Populate it with any necessary configuration settings (e.g., `OLLAMA_HOST` is handled in `docker-compose.yml`, but other scraper-specific settings might go here).
+
+3.  **Pull the LLaMA model into Ollama container:**
+    * The `ollama` service will be started by `docker compose up`. After the containers are running, you need to pull the language model into the Ollama container.
+    * Open a **new terminal** and run:
+        ```bash
+        docker compose exec ollama ollama pull llama3
+        ```
+    * **Note on Memory**: The default `llama3` model is ~4.7 GB and requires significant RAM. If you face `model requires more system memory` errors, you can use a smaller, quantized version like `llama3:8b-instruct-q3_K_M`.
+        * To pull a smaller model: `docker compose exec ollama ollama pull llama3:8b-instruct-q3_K_M`
+        * You would then need to **edit `rag/api.py`** to change `model='llama3'` to `model='llama3:8b-instruct-q3_K_M'`.
+
+---
+
+## **3) Running the Project**
+
+Follow these steps to build, run, and interact with the chatbot.
+
+1.  **Build and run the Docker containers:**
+    * This command builds the Docker images without using the cache and then starts all the services defined in `docker-compose.yml`.
+    * **For PowerShell users:**
+        ```powershell
+        docker compose build --no-cache ; docker compose up
+        ```
+    * **For Bash/Zsh (Linux/macOS/Git Bash) users:**
+        ```bash
+        docker compose build --no-cache && docker compose up
+        ```
+
+2.  **Execute the data pipelines inside the `pipeline` container:**
+    * Once the `docker compose up` command finishes and all services are running, open a **new terminal**.
+    * Start a shell session inside the `pipeline` container:
+        ```bash
+        docker compose exec pipeline /bin/bash
+        ```
+    * Inside the container's shell, run the scraping, ETL, and indexing scripts in order:
+        ```bash
+        python -m scraper.crawl
+        python -m pipeline.run
+        python -m rag.index
+        exit # To exit the container's shell
+        ```
+    * **Note**: The first run of `scraper.crawl` will download PDFs to `./data/raw/pdf`. Ensure you have internet connectivity.
+
+3.  **Access the web UI:**
+    * Once the `rag.index` script has completed successfully, your chatbot is fully operational.
+    * Open your web browser and navigate to: **`http://localhost:8501`**.
+
+---
+
+## **4) Project Structure**
+
+<img width="479" height="623" alt="image" src="https://github.com/user-attachments/assets/6e9be5c5-ebbb-4640-96a6-aec167314451" />
+
+---
+
+## **5) Architecture & Trade-offs**
+
+This project employs a modular, containerized architecture designed for reproducibility and maintainability.
+
+* **Containerization (Docker & Docker Compose):** Each core component (Ollama, Scraper/Pipeline, FastAPI API, Streamlit UI) runs in its own Docker container. This ensures consistent environments across different machines and simplifies dependency management.
+* **Data Flow:**
+    1.  **Scraper (`scraper.crawl`):** Collects document metadata and PDF links from the MoSPI website.
+    2.  **PDF Parser (`scraper.parse`):** Downloads and extracts text/tables from PDFs.
+    3.  **ETL Pipeline (`pipeline.run`):** Processes raw data, chunks text, and stores processed documents.
+    4.  **Indexer (`rag.index`):** Creates a FAISS vector index from the processed text chunks.
+    5.  **RAG API (`rag.api`):** A FastAPI server that receives user queries, retrieves relevant context from the FAISS index, and prompts a local LLaMA 3 model via the Ollama container.
+    6.  **Frontend (`app.py`):** A Streamlit application providing an interactive chat interface.
+* **LLM Integration:** Utilizes Ollama to run large language models locally, reducing API costs and enhancing data privacy.
+* **Vector Store:** FAISS is used for efficient similarity search to retrieve the most relevant document chunks.
+* **Prompt Engineering:** Prompts are crafted to instruct the LLM to answer strictly from the provided context, including document titles, to minimize hallucinations.
+
+**Key Trade-offs:**
+
+* **Local LLM vs. Cloud API:** Chose local Ollama for cost efficiency and self-containment, despite higher local resource demands.
+* **Quantized Models:** Required using smaller, quantized LLaMA 3 models (e.g., `phi3` or `llama3:8b-instruct-q3_K_M`) due to host machine memory constraints, which can sometimes impact answer quality compared to larger models.
+* **Text-based Table Processing:** The PDF parser extracts tables as text, which can sometimes challenge smaller LLMs in interpreting structured data, leading to occasional inaccuracies or verbose responses.
+
+---
+
+## **6) Future Improvements**
+
+* **Advanced Chunking Strategies:** Implement more sophisticated text-chunking (e.g., recursive text splitting, semantic chunking, or table-aware chunking) to improve retrieval accuracy.
+* **Enhanced Citation Generation:** Implement more precise citations, potentially linking to page numbers or specific table references within the source PDFs.
+* **Hybrid Retrieval:** Combine vector search with keyword-based search (e.g., BM25) for a more robust retrieval mechanism.
+* **Comprehensive Testing:** Expand unit and integration tests to cover all components and ensure data quality at each stage of the pipeline.
+* **Data Validation with Great Expectations:** Integrate a data validation framework like Great Expectations into the ETL pipeline.
+* **User Feedback & Evaluation:** Implement a feedback mechanism in the UI to collect user satisfaction and continuously evaluate chatbot performance with a dedicated Q&A dataset.
+* **UI Enhancements:** Add features like displaying retrieved source snippets directly in the UI, or toggles for RAG parameters (e.g., `top_k`, temperature).
 
 
-2. Create requirements.txt
-Ensure you have a requirements.txt file in your project root with the following minimal dependencies to avoid issues like torch downloads:
-# requirements.txt
-# --- RAG Core Dependencies ---
-sentence-transformers
-numpy
-faiss-cpu==1.7.4 # Use this specific version to avoid torch dependency
-ollama
-
-# --- API & UI Frameworks ---
-fastapi
-uvicorn
-streamlit
 
 
-3. Build & Run Docker Containers
-This command will build the Docker images and start all the services (Ollama, pipeline, API, UI).
-Note for PowerShell users: Use ; instead of && to chain commands.
-docker compose build --no-cache ; docker compose up
 
 
-4. Pull the LLM Model into Ollama Container
-Once all containers are up, the Ollama container will be running but without a language model. You need to pull one into it. We recommend phi3 for lower resource usage.
-For Phi-3 (recommended for lower memory):
-docker compose exec ollama ollama pull phi3
-
-
-For LLaMA 3 (requires more RAM):
-docker compose exec ollama ollama pull llama3
-
-
-5. Run Scraper, Pipeline, and Indexer inside the Container
-These steps process your data and build the FAISS index.
-Access the pipeline container shell:
-docker compose exec pipeline /bin/bash
-
-
-Execute the scripts (inside the container shell):
-python -m scraper.crawl
-python -m pipeline.run
-python -m rag.index
-
-
-Wait for each script to complete before running the next. The rag.index script will build your vector index.
-Exit the container shell:
-exit
-
-
-6. Access the Chatbot UI
-Once all services are running and the index is built, open your web browser and go to:
-👉 http://localhost:8501
-You should see the Streamlit chatbot interface, ready to answer questions based on your MoSPI data!
-💬 Testing the Chatbot
-Here are some sample questions you can ask the chatbot:
-"What is the unemployment rate for males aged 15-29 in rural areas in June 2025?"
-"What is the unemployment rate for females in urban areas in April 2025?"
-"What is the document title for the data from June 2025?"
-"Compare the unemployment rate for males and females in urban areas in April 2025."
-"What is the overall unemployment rate (for all persons) in rural areas in May 2025?"
-⚠️ Troubleshooting
-unknown flag: --no-cache / InvalidEndOfLine: If you see this error, ensure you are using the correct command separator for your terminal. For PowerShell, use ; instead of &&:
-docker compose build --no-cache ; docker compose up
-
-
-torch download stuck: This indicates faiss-cpu is pulling unnecessary dependencies. Ensure faiss-cpu==1.7.4 is explicitly listed in requirements.txt. Then, use docker compose build --no-cache ; docker compose up to rebuild.
-model requires more system memory: Your system does not have enough RAM.
-Close all unnecessary applications.
-Use a smaller model like phi3 (run docker compose exec ollama ollama pull phi3).
-Update rag/api.py to use model='phi3'.
-{"detail":"Method Not Allowed"}: You are making a GET request to a POST endpoint. Use the Streamlit UI or a requests script.
-Chatbot Hallucinations: The model is generating information not in the context. This is common with smaller models or sub-optimal prompts. We've updated the prompt to mitigate this. Consider using a larger model if resources allow, or further refining the prompt.
-API is not running (Frontend error): Ensure your rag_api container is running without errors. Check the Docker logs for the rag_api service: docker compose logs rag_api.
-💡 Future Improvements
-Enhanced Chunking: Implement more sophisticated text chunking strategies beyond simple fixed-size splits (e.g., semantic chunking, hierarchical chunking).
-Advanced Prompt Engineering: Further refine the system prompt to guide the LLM more effectively, especially for complex table extraction and numerical aggregation.
-Hybrid Retrieval: Combine vector search with keyword-based search (e.g., BM25) for more robust retrieval.
-Caching: Implement caching for LLM responses and document embeddings to speed up repeated queries.
-Error Handling & Logging: Improve error handling and structured logging across all services.
-Docker Compose Health Checks: Add health checks to docker-compose.yml to ensure services are fully ready before dependent services start.
-Persistent Storage for Scraped Data: Use named volumes for /app/data to persist scraped data across container restarts.
