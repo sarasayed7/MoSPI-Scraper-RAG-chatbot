@@ -1,7 +1,17 @@
+# infra/Dockerfile.pipeline
+
 FROM python:3.11-slim
+
 WORKDIR /app
+
+# Only copy requirements.txt first to leverage Docker's build cache
 COPY requirements.txt .
+
+# Install dependencies from requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-COPY scraper/ /app/scraper
-COPY data/ /app/data
-CMD ["python", "-m", "scraper.crawl"]
+
+# Copy the rest of the project files
+COPY . .
+
+# The container is designed to run different pipeline scripts
+CMD ["/bin/bash"]

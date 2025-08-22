@@ -1,29 +1,44 @@
-# requirements.txt
+# # requirements.txt
+# --- RAG Core Dependencies ---
+sentence-transformers
+numpy
+faiss-cpu==1.7.4
+ollama
 
-# --- Core Scraper & Utility Libraries ---
-python-dotenv
-httpx
-beautifulsoup4
-
-# --- PDF Processing ---
-pdfplumber
-# camelot-py # Alternative for complex table extraction; requires Ghostscript
-
-# --- Data Handling ---
-pandas # For general data manipulation, especially with tables
-# polars # A faster alternative to pandas, if preferred
-
-# --- RAG Components ---
-sentence-transformers # For generating embeddings
-faiss-cpu # Vector store (CPU version for local development)
-# chromadb # Alternative vector store (if preferred)
-
-# --- API Framework ---
+# --- API & UI Frameworks ---
 fastapi
-uvicorn[standard] # uvicorn with standard dependencies
+uvicorn
+streamlit
 
-# --- Testing & Code Quality ---
-pytest
-mypy # For static type checking
-black # For code formatting
-isort # For sorting imports
+# # --- Core Scraper & Utility Libraries ---
+# python-dotenv
+# httpx
+# beautifulsoup4
+# requests # Used by streamlit and the test script
+
+# # --- PDF Processing ---
+# pdfplumber
+
+# # --- Data Handling ---
+# pandas
+
+# # --- RAG Components ---
+# sentence-transformers
+# numpy # Used by the FAISS retriever
+# faiss-cpu # Vector store (CPU version)
+
+# # --- API Framework ---
+# fastapi
+# uvicorn[standard]
+
+# # --- Ollama API ---
+# ollama # To interact with the Ollama server
+
+# # --- Frontend UI ---
+# streamlit
+
+# # --- Testing & Code Quality ---
+# pytest
+# mypy
+# black
+# isort

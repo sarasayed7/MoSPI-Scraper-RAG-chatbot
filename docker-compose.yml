@@ -1,64 +1,56 @@
-# docker-compose.yml for the project services
+# docker-compose.yml
+
+version: '3.8'
 
 services:
-  scraper:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama_data:/root/.ollama
+    command: ["ollama", "serve"]
+
+  pipeline:
     build:
       context: .
       dockerfile: ./infra/Dockerfile.scraper
-    container_name: mospi-scraper
-    env_file:
-      - .env
+    container_name: pipeline
     volumes:
       - ./data:/app/data
-    networks:
-      - rag-network
-    command: python -m scraper.crawl
+      - ./scraper:/app/scraper
+      - ./pipeline:/app/pipeline
+      - ./requirements.txt:/app/requirements.txt
+      - ./rag:/app/rag
+    # A bash command to keep the container running for manual use
+    command: /bin/bash -c "tail -f /dev/null"
 
   api:
     build:
       context: .
       dockerfile: ./infra/Dockerfile.api
-    container_name: rag-api
-    env_file:
-      - .env
+    container_name: rag_api
     ports:
       - "8000:8000"
     volumes:
       - ./data:/app/data
+      - ./rag:/app/rag
+      - ./requirements.txt:/app/requirements.txt
     depends_on:
-      - scraper # Ensure scraper is done first (for initial data)
       - ollama
-    networks:
-      - rag-network
-    command: uvicorn rag.api:app --host 0.0.0.0 --port 8000
+    # Ollama needs to be running before the API starts
+    command: ["/bin/bash", "-c", "uvicorn rag.api:app --host 0.0.0.0 --port 8000"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
 
   ui:
     build:
       context: .
       dockerfile: ./infra/Dockerfile.ui
-    container_name: rag-ui
-    env_file:
-      - .env
+    container_name: rag_ui
     ports:
-      - "3000:3000" # Example for a Next.js/React app
+      - "8501:8501"
     depends_on:
       - api
-    networks:
-      - rag-network
-
-  ollama:
-    container_name: ollama
-    image: ollama/ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-data:/root/.ollama
-    networks:
-      - rag-network
-
-volumes:
-  ollama-data:
-
-networks:
-  rag-network:
-    driver: bridge
+    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
